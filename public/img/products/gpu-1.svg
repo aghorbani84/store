@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="RTX 3060 12GB">
+<rect width="800" height="500" fill="#1d1d1d"/>
+<rect x="14" y="14" width="772" height="472" fill="none" stroke="#c9a227" stroke-width="2" opacity="0.55"/>
+<g fill="none" stroke="#c9a227" stroke-width="3" opacity="0.85"><rect x="170" y="150" width="460" height="130" rx="10"/><circle cx="300" cy="215" r="48"/><circle cx="500" cy="215" r="48"/><circle cx="300" cy="215" r="14"/><circle cx="500" cy="215" r="14"/><rect x="170" y="150" width="60" height="130" rx="10"/></g>
+<text x="400" y="330" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="40" font-weight="bold" fill="#e3c766">کارت گرافیک</text>
+<text x="400" y="385" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="28" fill="#f2efe9">RTX 3060 12GB</text>
+<text x="400" y="440" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="20" fill="#a8a29a">پارسه | تصویر نمونهٔ محصول</text>
+<text x="760" y="56" text-anchor="end" font-family="Vazirmatn, Tahoma, sans-serif" font-size="22" font-weight="bold" fill="#c9a227">نمونه</text>
+</svg>

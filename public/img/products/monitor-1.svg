@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img" aria-label="27 inch 165Hz">
+<rect width="800" height="500" fill="#1d1d1d"/>
+<rect x="14" y="14" width="772" height="472" fill="none" stroke="#c9a227" stroke-width="2" opacity="0.55"/>
+<g fill="none" stroke="#c9a227" stroke-width="3" opacity="0.85"><rect x="230" y="100" width="340" height="210" rx="8"/><line x1="400" y1="310" x2="400" y2="360"/><line x1="330" y1="360" x2="470" y2="360"/></g>
+<text x="400" y="330" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="40" font-weight="bold" fill="#e3c766">مانیتور</text>
+<text x="400" y="385" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="28" fill="#f2efe9">27 inch 165Hz</text>
+<text x="400" y="440" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="20" fill="#a8a29a">پارسه | تصویر نمونهٔ محصول</text>
+<text x="760" y="56" text-anchor="end" font-family="Vazirmatn, Tahoma, sans-serif" font-size="22" font-weight="bold" fill="#c9a227">نمونه</text>
+</svg>
