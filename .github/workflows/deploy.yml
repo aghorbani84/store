@@ -1,0 +1,84 @@
+name: Deploy Parseh store
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build (dry-run deploy)
+        run: npm run build
+
+  deploy:
+    name: Migrate D1 + deploy to Cloudflare
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+
+      # FAIL LOUDLY if any required secret is missing — never silently skip deploy.
+      - name: Check required secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: |
+          missing=""
+          [ -z "$CLOUDFLARE_API_TOKEN" ] && missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -z "$CLOUDFLARE_ACCOUNT_ID" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -z "$D1_DATABASE_ID" ] && missing="$missing D1_DATABASE_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required GitHub secrets:$missing — set them in Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
+          echo "All three required secrets are present."
+
+      # wrangler.jsonc ships with database_id PLACEHOLDER_STORE_DB_ID on purpose
+      # (no real D1 id is committed). Replace it from the secret before any
+      # wrangler command that needs the database.
+      - name: Inject D1 database id
+        env:
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: |
+          sed -i "s/PLACEHOLDER_STORE_DB_ID/${D1_DATABASE_ID}/g" wrangler.jsonc
+          grep -q "PLACEHOLDER_STORE_DB_ID" wrangler.jsonc && { echo "::error::D1 id replacement failed"; exit 1; } || echo "D1 database id injected."
+
+      - name: Apply D1 migrations (remote)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply store-db --remote
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
