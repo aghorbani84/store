@@ -1,0 +1,1 @@
+{"$schema":"node_modules/wrangler/config-schema.json","assets":{"directory":"./public"},"compatibility_date":"2026-11-23","d1_databases":[{"binding":"DB","database_id":"PLACEHOLDER_STORE_DB_ID","database_name":"store-db","migrations_dir":"migrations"}],"main":"src/index.ts","name":"parseh-store"}
