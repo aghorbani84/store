@@ -1,172 +1,107 @@
-# Store — Persian-first e-commerce on Cloudflare
+# Parseh Store
 
-Parseh (پارسه) — a Persian-first computer & electronics shop from Birjand — rebuilt on
-Cloudflare Workers + D1. Persian RTL storefront, Vazirmatn, black `#141414` + gold `#c9a227`.
+**A Persian-first (RTL) computer and electronics storefront running on Cloudflare Workers and D1.**
 
-> **Demo catalog:** all 8 products in the seed are DEMO (`demo: true`). Prices are Nov 2026
-> market-range samples, not real prices. Every page carries the banner
-> «کاتالوگ نمونه: قیمت‌ها واقعی نیستند؛ لیست واقعی به‌زودی.»
-> until the owner supplies real data. Never use these prices, stock levels, or discounts
-> as reference. Payment is a DEMO stub — orders are completed via Instagram DM
-> (`@parseh`, https://ig.me/m/parseh) until a real gateway is connected.
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)
+![Cloudflare D1](https://img.shields.io/badge/database-Cloudflare%20D1-F38020?logo=cloudflare&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?logo=nodedotjs&logoColor=white)
+[![GitHub stars](https://img.shields.io/github/stars/aghorbani84/store?style=flat)](https://github.com/aghorbani84/store/stargazers)
 
-## Source archive
+## Overview
 
-The initial project source should be uploaded from the provided `store-cloudflare.zip` archive. Extract it before uploading so the repository root contains `package.json`, `wrangler.jsonc`, `src/`, `public/`, `migrations/`, `tests/`, and `.github/workflows/deploy.yml`.
+Parseh Store (پارسه) is the server-backed version of the [Parseh shop](https://github.com/aghorbani84/parseh-shop):
+a framework-free Cloudflare Worker that serves a Persian RTL storefront and a small JSON API, with orders
+stored in Cloudflare D1.
 
-## Stack
+> **Demo catalog.** All 8 seeded products are marked `demo` and their prices are samples, not real
+> prices. Payment endpoints are **stubs**: they never report a payment as successful, and no card data is
+> handled anywhere.
 
-- **Runtime:** Cloudflare Workers (no framework; plain router in `src/index.ts`)
-- **Database:** Cloudflare D1 (`store-db`), migrations in `migrations/`
-- **Assets:** Workers Static Assets (`public/` — CSS/JS only; no binaries)
-- **Language:** TypeScript (strict), Node 20+ for tests
-- **Dependencies (minimal):** `typescript`, `wrangler`, `@cloudflare/workers-types` (all dev).
-  No other dependencies. Tests use Node's built-in runner (`node:test` + `node:assert`).
+## Features
 
-## Local dev
+- **Storefront pages** (server-rendered RTL HTML): home, shop with search/category/sort, product, cart,
+  checkout, confirmation, and info pages (about, contact, FAQ, shipping, returns, privacy, terms).
+- **Product API**: list with `category`, `q`, and `sort` (`default`, `cheapest`, `expensive`, `name`), or fetch one by SKU.
+- **Orders API** with server-side validation (Iranian mobile numbers, Persian digits normalised), stock checks,
+  `Idempotency-Key` support, and order IDs in the form `PRS-YYMMDD-XXXX`.
+- **Shipping rule**: flat 150,000 Toman, free above a 10,000,000 Toman subtotal, free pickup.
+- **Order status machine**: `pending` → `awaiting_payment` → `paid` | `cancelled`.
+- **Security basics**: parameterised SQL, escaped HTML, CSP and other security headers, same-origin API,
+  and best-effort per-IP rate limiting on order and payment endpoints.
 
-```bash
-npm ci
-npm run typecheck   # tsc --noEmit
-npm test            # tsc + node --test tests/
-npm run build       # tsc + wrangler deploy --dry-run
-npm run dev         # wrangler dev --local (local D1; apply migrations first: npx wrangler d1 migrations apply store-db --local)
-```
-
-`wrangler dev --local` starts the Worker on http://127.0.0.1:8787 with a **local** D1
-database — no Cloudflare account or credentials needed. **First run only:** apply the
-migration to the local database (verified 2026-11-23 — `wrangler dev` does NOT
-auto-apply migrations; without this step every D1 query fails with
-`no such table: products`):
-
-```bash
-npx wrangler d1 migrations apply store-db --local
-```
-
-## D1 database id placeholder
-
-`wrangler.jsonc` ships with `database_id: "PLACEHOLDER_STORE_DB_ID"` on purpose — no real
-D1 id is committed to the repo. Before any wrangler command that needs the database
-(remote migrations or deploy):
-
-```bash
-# locally
-sed -i "s/PLACEHOLDER_STORE_DB_ID/<real D1 id>/g" wrangler.jsonc
-# in CI, deploy.yml does this automatically from the D1_DATABASE_ID secret
-```
-
-Create the database once (needs a Cloudflare login):
-
-```bash
-npx wrangler d1 create store-db
-```
-
-then use its id above. Never commit a real id, token, or `.dev.vars`.
-
-## Deployment prerequisites
-
-- Cloudflare D1 database named `store-db`
-
-- GitHub Actions secrets:
-  - `CLOUDFLARE_API_TOKEN`
-  - `CLOUDFLARE_ACCOUNT_ID`
-  - `D1_DATABASE_ID`
-
-Do not commit credentials, `.dev.vars`, or real secret values.
-
-On push to `main`, `.github/workflows/deploy.yml` typechecks, tests, builds, then
-`sed`-replaces the placeholder D1 id from `D1_DATABASE_ID`, applies migrations
-(`wrangler d1 migrations apply store-db --remote`) and deploys. If any of the three
-secrets is unset, the deploy job **fails loudly** naming the missing secret(s) —
-it never silently skips or fakes success. Pull requests run the checks only.
-
-## CI/CD
-
-The workflow is designed to run unit tests and, on pushes to `main`, apply D1 migrations and deploy the Worker. It has not yet been verified in GitHub Actions.
-
-## API contract (frozen — Builder B builds the storefront on this)
-
-Base: same origin (no CORS; no `Access-Control-Allow-Origin: *`).
+## API
 
 | Method & path | Description |
-|---|---|
-| `GET /api/health` | `{ ok: true, demo: true, service: "parseh-store", time }` |
-| `GET /api/products?category=&q=&sort=` | List products. `sort`: `default` \| `cheapest` \| `expensive` \| `name`. Returns `{ products: [...] }`. |
-| `GET /api/products/:sku` | One product, `{ product }`, or 404 `{ error }`. |
-| `POST /api/orders` | Create order. See below. |
-| `GET /api/orders/:id` | One order with items, `{ order }`, or 404. |
-| `POST /api/payments/request` | **DEMO stub** — `{ demo: true, message: "درگاه پرداخت هنوز متصل نشده است…" }`. |
-| `GET /api/payments/callback` | **DEMO stub** — same shape. |
-| `POST /api/payments/verify` | **DEMO stub** — same shape. Never claims a payment succeeded. |
+| --- | --- |
+| `GET /api/health` | Health check |
+| `GET /api/products?category=&q=&sort=` | List products |
+| `GET /api/products/:sku` | One product, or 404 |
+| `POST /api/orders` | Create an order (validated, idempotent, rate-limited) |
+| `GET /api/orders/:id` | One order with its items, or 404 |
+| `POST /api/payments/request` · `GET /api/payments/callback` · `POST /api/payments/verify` | Demo stubs |
 
-Product object: `{ sku, name, short, category, price_toman, old_price_toman, stock, image, badge, demo, specs }`
-(`specs` is an object; `old_price_toman` is `null` when absent.)
+## Tech stack
 
-### `POST /api/orders`
+| Area | Choice |
+| --- | --- |
+| Runtime | Cloudflare Workers (plain router, no framework) |
+| Database | Cloudflare D1, SQL migrations in `migrations/` |
+| Static assets | Workers Static Assets (`public/`) |
+| Language | TypeScript (strict) |
+| Tests | Node's built-in test runner (`node:test`) |
+| Tooling | Wrangler |
+| CI/CD | GitHub Actions: typecheck, test, dry-run build; deploy on `main` |
 
-Headers: `Content-Type: application/json`; optional `Idempotency-Key` (1–128 chars) —
-same key returns the existing order (`{ order, replayed: true }`, 200) and never
-creates a duplicate. Rate limit: 10 requests / 60 s per IP (429 beyond that).
+The only dependencies are dev tools: `typescript`, `wrangler`, and `@cloudflare/workers-types`.
 
-Request body:
+## Getting started
 
-```json
-{
-  "name": "نام و نام خانوادگی",
-  "phone": "09123456789",
-  "city": "بیرجند",
-  "address": "…",
-  "shipping_method": "delivery",
-  "note": "",
-  "items": [{ "sku": "PRS-STR-01", "qty": 2 }]
-}
+Requires Node.js 20 or newer. Local development needs no Cloudflare account.
+
+```bash
+git clone https://github.com/aghorbani84/store.git
+cd store
+npm ci
+npx wrangler d1 migrations apply store-db --local   # first run only
+npm run dev                                         # http://127.0.0.1:8787
 ```
 
-- `phone` must be an Iranian mobile `09xxxxxxxxx` (Persian digits are normalised).
-- `shipping_method`: `delivery` | `pickup`.
-- `items`: 1–50 lines, unique SKUs, integer `qty` 1–99; stock is checked server-side.
-- Success: `201 { order, replayed: false }`. Validation errors: `400 { errors: [...] }`.
-  Unknown SKU: `400`. Insufficient stock: `409`.
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Run the Worker locally with a local D1 database |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Compile and run the `node:test` suites |
+| `npm run build` | Compile and run `wrangler deploy --dry-run` |
 
-Order object: `{ id, name, phone, city, address, shipping_method, shipping_fee_toman,
-subtotal_toman, total_toman, status, note, idempotency_key, created_at, items: [{ sku, name, price_toman, qty }] }`.
-Order id format: `PRS-YYMMDD-XXXX`.
+### Deploying
 
-Shipping rule: flat 150,000 Toman; free above 10,000,000 Toman subtotal; free Birjand
-pickup. Order status flow: `pending` → `awaiting_payment` → `paid` | `cancelled`.
-Payment verification must check `amount == order.total_toman` before marking paid
-(`markOrderPaid` in `src/db.ts` enforces this).
+`wrangler.jsonc` ships with the placeholder `PLACEHOLDER_STORE_DB_ID`; no real database ID is committed.
+The deploy workflow replaces it from a secret, applies D1 migrations remotely, and deploys. It needs these
+GitHub Actions secrets and fails loudly if any is missing:
 
-### Pages (server-rendered shells; Builder B skins them)
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `D1_DATABASE_ID`
 
-`/` · `/shop` (query: `q`, `category`, `sort`) · `/product?sku=…` · `/cart` ·
-`/checkout` · `/confirmation?order=…` · `/about` · `/contact` · `/faq` · `/shipping` ·
-`/returns` · `/privacy` · `/terms`. All pages carry the demo banner.
+Create the database once with `npx wrangler d1 create store-db`. Never commit real IDs, tokens, or `.dev.vars`.
 
-## Project layout
+## Project structure
 
 ```
-package.json  wrangler.jsonc  tsconfig.json
-src/          index.ts (router+API)  db.ts (D1 helpers)  validate.ts (pure validation)
-              cart.ts (pure cart math)  orders.ts (order id + status machine)
-              render.ts (RTL HTML helpers)
-migrations/   0001_init.sql (schema + 5 categories + 8 demo products)
-tests/        validation.test.mjs  cart.test.mjs  orders.test.mjs (incl. sqlite migration smoke test)
-public/       css/style.css (storefront stylesheet)  js/app.js (client app: cart, checkout, confirmation)
-.github/workflows/  deploy.yml  import-archive.yml (verbatim, unused)
+src/
+  index.ts      router, API handlers, security headers, rate limiting
+  db.ts         D1 helpers
+  validate.ts   request validation
+  cart.ts       cart and shipping math
+  orders.ts     order IDs and status machine
+  render.ts     RTL HTML rendering and escaping
+public/         storefront CSS, client JS, product images (SVG)
+migrations/     0001_init.sql: schema, categories, demo products
+tests/          cart, orders, and validation tests
+.github/workflows/  deploy.yml, import-archive.yml
 ```
 
-## Security notes
+## Author
 
-- All D1 queries are parameterised; never string-concatenated SQL.
-- All HTML output is escaped (`escapeHtml` in `src/render.ts`).
-- JSON `Content-Type` on API responses; same-origin only (no wildcard CORS).
-- Security headers on every response: CSP, `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`.
-- Basic in-memory per-IP rate limiting on `POST /api/orders` and payment endpoints
-  (see `src/index.ts` — best-effort per isolate, resets on deploy).
-- No card data anywhere. No secrets in the repo.
-
-## Important
-
-Keep this repository private until you intentionally choose to open-source the code.
+Built by [Abolfazl Ghorbani](https://github.com/aghorbani84).
